@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HoverClone - Domain Registration Platform</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .domain-card {
+            transition: all 0.3s ease;
+        }
+        
+        .domain-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, createContext, useContext, useCallback } = React;
+        
+        // Types
+        const DomainStatus = {
+            AVAILABLE: 'available',
+            TAKEN: 'taken',
+            PREMIUM: 'premium'
+        };
+
+        // Utils
+        const cn = (...classes) => classes.filter(Boolean).join(' ');
+        
+        const formatPrice = (price) => `$${price.toFixed(2)}`;
+        
+        const validateEmail = (email) => {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        };
+
+        // Context
+        const AuthContext = createContext(null);
+        const CartContext = createContext(null);
+        const ThemeContext = createContext(null);
+
+        // Auth Provider
+        const AuthProvider = ({ children }) => {
+            const [user, setUser] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+
+            const login = async (email, password) => {
+                setIsLoading(true);
+                // Simulate API call
+                setTimeout(() => {
+                    setUser({ id: 1, email, name: 'John Doe' });
+                    setIsLoading(false);
+                }, 1000);
+            };
+
+            const logout = () => {
+                setUser(null);
+            };
+
+            const register = async (email, password, name) => {
+                setIsLoading(true);
+                setTimeout(() => {
+                    setUser({ id: 1, email, name });
+                    setIsLoading(false);
+                }, 1000);
+            };
+
+            return (
+                <AuthContext.Provider value={{ user, isLoading, login, logout, register }}>
+                    {children}
+                </AuthContext.Provider>
+            );
+        };
+
+        // Cart Provider
+        const CartProvider = ({ children }) => {
+            const [items, setItems] = useState([]);
+            const [isOpen, setIsOpen] = useState(false);
+
+            const addItem = (domain) => {
+                setItems(prev => [...prev, { ...domain, id: Date.now() }]);
+            };
+
+            const removeItem = (id) => {
+                setItems(prev => prev.filter(item => item.id !== id));
+            };
+
+            const total = items.reduce((sum, item) => sum + item.price, 0);
+
+            return (
+                <CartContext.Provider value={{ 
+                    items, 
+                    addItem, 
+                    removeItem, 
+                    total, 
+                    isOpen, 
+                    setIsOpen 
+                }}>
+                    {children}
+                </CartContext.Provider>
+            );
+        };
+
+        // Theme Provider
+        const ThemeProvider = ({ children }) => {
+            const [isDark, setIsDark] = useState(false);
+
+            const toggleTheme = () => setIsDark(!isDark);
+
+            return (
+                <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+                    <div className={isDark ? 'dark' : ''}>
+                        {children}
+                    </div>
+                </ThemeContext.Provider>
+            );
+        };
+
+        // Hooks
+        const useAuth = () => {
+            const context = useContext(AuthContext);
+            if (!context) throw new Error('useAuth must be used within AuthProvider');
+            return context;
+        };
+
+        const useCart = () => {
+            const context = useContext(CartContext);
+            if (!context) throw new Error('useCart must be used within CartProvider');
+            return context;
+        };
+
+        const useTheme = () => {
+            const context = useContext(ThemeContext);
+            if (!context) throw new Error('useTheme must be used within ThemeProvider');
+            return context;
+        };
+
+        const useDebounce = (value, delay) => {
+            const [debouncedValue, setDebouncedValue] = useState(value);
+
+            useEffect(() => {
+                const handler = setTimeout(() => setDebouncedValue(value), delay);
+                return () => clearTimeout(handler);
+            }, [value, delay]);
+
+            return debouncedValue;
+        };
+
+        const useDomainSearch = () => {
+            const [results, setResults] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+
+            const searchDomains = useCallback(async (query) => {
+                if (!query) {
+                    setResults([]);
+                    return;
+                }
+
+                setIsLoading(true);
+                
+                // Simulate API call
+                setTimeout(() => {
+                    const mockResults = [
+                        { name: `${query}.com`, status: DomainStatus.AVAILABLE, price: 12.99 },
+                        { name: `${query}.net`, status: DomainStatus.AVAILABLE, price: 14.99 },
+                        { name: `${query}.org`, status: DomainStatus.TAKEN, price: 0 },
+                        { name: `${query}.io`, status: DomainStatus.PREMIUM, price: 59.99 },
+                        { name: `${query}.co`, status: DomainStatus.AVAILABLE, price: 24.99 },
+                    ];
+                    setResults(mockResults);
+                    setIsLoading(false);
+                }, 1000);
+            }, []);
+
+            return { results, isLoading, searchDomains };
+        };
+
+        // UI Components
+        const Button = ({ 
+            variant = 'primary', 
+            size = 'md', 
+            children, 
+            onClick, 
+            disabled = false, 
+            className = '',
+            ...props 
+        }) => {
+            const baseClasses = 'font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+            
+            const variantClasses = {
+                primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-md hover:shadow-lg',
+                secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500',
+                danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+                outline: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 focus:ring-blue-500'
+            };
+            
+            const sizeClasses = {
+                sm: 'px-3 py-1.5 text-sm',
+                md: 'px-4 py-2 text-base',
+                lg: 'px-6 py-3 text-lg'
+            };
+
+            return (
+                <button
+                    className={cn(
+                        baseClasses,
+                        variantClasses[variant],
+                        sizeClasses[size],
+                        disabled && 'opacity-50 cursor-not-allowed',
+                        className
+                    )}
+                    onClick={onClick}
+                    disabled={disabled}
+                    {...props}
+                >
+                    {children}
+                </button>
+            );
+        };
+
+        const Input = ({ 
+            label, 
+            error, 
+            className = '', 
+            ...props 
+        }) => {
+            return (
+                <div className="space-y-1">
+                    {label && (
+                        <label className="block text-sm font-medium text-gray-700">
+                            {label}
+                        </label>
+                    )}
+                    <input
+                        className={cn(
+                            'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors',
+                            error && 'border-red-500 focus:ring-red-500',
+                            className
+                        )}
+                        {...props}
+                    />
+                    {error && (
+                        <p className="text-sm text-red-600">{error}</p>
+                    )}
+                </div>
+            );
+        };
+
+        const Card = ({ children, className = '', ...props }) => {
+            return (
+                <div 
+                    className={cn(
+                        'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+                        className
+                    )} 
+                    {...props}
+                >
+                    {children}
+                </div>
+            );
+        };
+
+        const Badge = ({ 
+            variant = 'default', 
+            children, 
+            className = '' 
+        }) => {
+            const variantClasses = {
+                default: 'bg-gray-100 text-gray-800',
+                success: 'bg-green-100 text-green-800',
+                warning: 'bg-yellow-100 text-yellow-800',
+                danger: 'bg-red-100 text-red-800',
+                premium: 'bg-purple-100 text-purple-800'
+            };
+
+            return (
+                <span className={cn(
+                    'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                    variantClasses[variant],
+                    className
+                )}>
+                    {children}
+                </span>
+            );
+        };
+
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div 
+                        className="fixed inset-0 bg-black bg-opacity-50" 
+                        onClick={onClose}
+                    />
+                    <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full mx-4 p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold">{title}</h3>
+                            <button 
+                                onClick={onClose}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
+        const Spinner = ({ size = 'md' }) => {
+            const sizeClasses = {
+                sm: 'w-4 h-4',
+                md: 'w-6 h-6',
+                lg: 'w-8 h-8'
+            };
+
+            return (
+                <div className={cn(
+                    'animate-spin rounded-full border-2 border-gray-300 border-t-blue-600',
+                    sizeClasses[size]
+                )} />
+            );
+        };
+
+        // Layout Components
+        const Header = () => {
+            const { user, logout } = useAuth();
+            const { items, setIsOpen } = useCart();
+            const [showUserMenu, setShowUserMenu] = useState(false);
+
+            return (
+                <header className="bg-white shadow-sm border-b">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex justify-between items-center h-16">
+                            <div className="flex items-center space-x-8">
+                                <div className="text-2xl font-bold text-blue-600">
+                                    HoverClone
+                                </div>
+                                <nav className="hidden md:flex space-x-6">
+                                    <a href="#" className="text-gray-700 hover:text-blue-600">Domains</a>
+                                    <a href="#" className="text-gray-700 hover:text-blue-600">Pricing</a>
+                                    <a href="#" className="text-gray-700 hover:text-blue-600">Support</a>
+                                </nav>
+                            </div>
+                            
+                            <div className="flex items-center space-x-4">
+                                <button 
+                                    onClick={() => setIsOpen(true)}
+                                    className="relative p-2 text-gray-700 hover:text-blue-600"
+                                >
+                                    🛒
+                                    {items.length > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                            {items.length}
+                                        </span>
+                                    )}
+                                </button>
+                                
+                                {user ? (
+                                    <div className="relative">
+                                        <button 
+                                            onClick={() => setShowUserMenu(!showUserMenu)}
+                                            className="flex items-center space-x-2 text-gray-700 hover:text-blue-600"
+                                        >
+                                            <span>{user.name}</span>
+                                            <span>👤</span>
+                                        </button>
+                                        {showUserMenu && (
+                                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border">
+                                                <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">Dashboard</a>
+                                                <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">My Domains</a>
+                                                <button 
+                                                    onClick={logout}
+                                                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    Logout
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="space-x-2">
+                                        <Button variant="outline" size="sm">Login</Button>
+                                        <Button size="sm">Sign Up</Button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            );
+        };
+
+        const Footer = () => {
+            return (
+                <footer className="bg-gray-50 border-t">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                            <div>
+                                <div className="text-xl font-bold text-blue-600 mb-4">
+                                    HoverClone
+                                </div>
+                                <p className="text-gray-600">
+                                    Professional domain registration and management platform.
+                                </p>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900 mb-3">Products</h3>
+                                <ul className="space-y-2 text-gray-600">
+                                    <li><a href="#" className="hover:text-blue-600">Domain Registration</a></li>
+                                    <li><a href="#" className="hover:text-blue-600">Domain Transfer</a></li>
+                                    <li><a href="#" className="hover:text-blue-600">DNS Management</a></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900 mb-3">Support</h3>
+                                <ul className="space-y-2 text-gray-600">
+                                    <li><a href="#" className="hover:text-blue-600">Help Center</a></li>
+                                    <li><a href="#" className="hover:text-blue-600">Contact Us</a></li>
+                                    <li><a href="#" className="hover:text-blue-600">Documentation</a></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900 mb-3">Company</h3>
+                                <ul className="space-y-2 text-gray-600">
+                                    <li><a href="#" className="hover:text-blue-600">About</a></li>
+                                    <li><a href="#" className="hover:text-blue-600">Privacy</a></li>
+                                    <li><a href="#" className="hover:text-blue-600">Terms</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div className="mt-8 pt-8 border-t border-gray-200 text-center text-gray-600">
+                            <p>&copy; 2024 HoverClone. All rights reserved.</p>
+                        </div>
+                    </div>
+                </footer>
+            );
+        };
+
+        // Domain Components
+        const DomainSearch = () => {
+            const [query, setQuery] = useState('');
+            const debouncedQuery = useDebounce(query, 500);
+            const { results, isLoading, searchDomains } = useDomainSearch();
+
+            useEffect(() => {
+                searchDomains(debouncedQuery);
+            }, [debouncedQuery, searchDomains]);
+
+            return (
+                <div className="space-y-6">
+                    <div className="relative">
+                        <Input
+                            type="text"
+                            placeholder="Search for your perfect domain..."
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            className="text-lg py-4 pr-12"
+                        />
+                        <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            🔍
+                        </button>
+                    </div>
+
+                    {isLoading && (
+                        <div className="flex justify-center py-8">
+                            <Spinner size="lg" />
+                        </div>
+                    )}
+
+                    {results.length > 0 && (
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">Search Results</h3>
+                            <div className="grid gap-4">
+                                {results.map((domain, index) => (
+                                    <DomainCard key={index} domain={domain} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const DomainCard = ({ domain }) => {
+            const { addItem } = useCart();
+
+            const getStatusBadge = (status) => {
+                switch (status) {
+                    case DomainStatus.AVAILABLE:
+                        return <Badge variant="success">Available</Badge>;
+                    case DomainStatus.TAKEN:
+                        return <Badge variant="danger">Taken</Badge>;
+                    case DomainStatus.PREMIUM:
+                        return <Badge variant="premium">Premium</Badge>;
+                    default:
+                        return <Badge>Unknown</Badge>;
+                }
+            };
+
+            return (
+                <Card className="domain-card flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="text-lg font-semibold">{domain.name}</div>
+                        {getStatusBadge(domain.status)}
+                    </div>
+                    <div className="flex items-center space-x-4">
+                        {domain.status !== DomainStatus.TAKEN && (
+                            <div className="text-lg font-bold text-green-600">
+                                {formatPrice(domain.price)}/year
+                            </div>
+                        )}
+                        {domain.status === DomainStatus.AVAILABLE && (
+                            <Button 
+                                onClick={() => addItem(domain)}
+                                size="sm"
+                            >
+                                Add to Cart
+                            </Button>
+                        )}
+                        {domain.status === DomainStatus.PREMIUM && (
+                            <Button 
+                                onClick={() => addItem(domain)}
+                                variant="outline" 
+                                size="sm"
+                            >
+                                Buy Premium
+                            </Button>
+                        )}
+                    </div>
+                </Card>
+            );
+        };
+
+        // Cart Component
+        const CartDrawer = () => {
+            const { items, removeItem, total, isOpen, setIsOpen } = useCart();
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-50 flex">
+                    <div 
+                        className="fixed inset-0 bg-black bg-opacity-50" 
+                        onClick={() => setIsOpen(false)}
+                    />
+                    <div className="ml-auto w-96 h-full bg-white shadow-xl flex flex-col">
+                        <div className="p-6 border-b">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-lg font-semibold">Shopping Cart</h2>
+                                <button 
+                                    onClick={() => setIsOpen(false)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {items.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    Your cart is empty
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {items.map((item) => (
+                                        <div key={item.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                                            <div>
+                                                <div className="font-medium">{item.name}</div>
+                                                <div className="text-sm text-gray-600">{formatPrice(item.price)}/year</div>
+                                            </div>
+                                            <button 
+                                                onClick={() => removeItem(item.id)}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        {items.length > 0 && (
+                            <div className="p-6 border-t">
+                                <div className="flex justify-between items-center mb-4">
+                                    <span className="text-lg font-semibold">Total:</span>
+                                    <span className="text-lg font-bold text-green-600">
+                                        {formatPrice(total)}/year
+                                    </span>
+                                </div>
+                                <Button className="w-full" size="lg">
+                                    Proceed to Checkout
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Auth Components
+        const LoginForm = ({ onClose }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [errors, setErrors] = useState({});
+            const { login, isLoading } = useAuth();
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const newErrors = {};
+
+                if (!email) newErrors.email = 'Email is required';
+                else if (!validateEmail(email)) newErrors.email = 'Invalid email format';
+                if (!password) newErrors.password = 'Password is required';
+
+                setErrors(newErrors);
+
+                if (Object.keys(newErrors).length === 0) {
+                    await login(email, password);
+                    onClose();
+                }
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <Input
+                        label="Email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        error={errors.email}
+                    />
+                    <Input
+                        label="Password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        error={errors.password}
+                    />
+                    <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={isLoading}
+                    >
+                        {isLoading ? <Spinner size="sm" /> : 'Login'}
+                    </Button>
+                </form>
+            );
+        };
+
+        // Main Pages
+        const HeroSection = () => {
+            return (
+                <section className="gradient-bg text-white py-20">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                        <h1 className="text-5xl font-bold mb-6">
+                            Find Your Perfect Domain
+                        </h1>
+                        <p className="text-xl mb-8 opacity-90">
+                            Register, transfer, and manage domains with ease. 
+                            Professional tools for your online presence.
+                        </p>
+                        <div className="max-w-2xl mx-auto">
+                            <DomainSearch />
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        const FeaturesSection = () => {
+            const features = [
+                {
+                    icon: '🚀',
+                    title: 'Fast Registration',
+                    description: 'Register domains instantly with our streamlined process'
+                },
+                {
+                    icon: '🔒',
+                    title: 'Secure Management',
+                    description: 'Advanced security features to protect your domains'
+                },
+                {
+                    icon: '💎',
+                    title: 'Premium Support',
+                    description: '24/7 expert support when you need it most'
+                },
+                {
+                    icon: '⚡',
+                    title: 'Lightning Fast',
+                    description: 'Optimized infrastructure for maximum performance'
+                }
+            ];
+
+            return (
+                <section className="py-20 bg-gray-50">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="text-center mb-16">
+                            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                                Why Choose HoverClone?
+                            </h2>
+                            <p className="text-xl text-gray-600">
+                                Everything you need to succeed online
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                            {features.map((feature, index) => (
+                                <Card key={index} className="text-center">
+                                    <div className="text-4xl mb-4">{feature.icon}</div>
+                                    <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                                    <p className="text-gray-600">{feature.description}</p>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        const PricingSection = () => {
+            const extensions = [
+                { extension: '.com', price: 12.99, popular: true },
+                { extension: '.net', price: 14.99, popular: false },
+                { extension: '.org', price: 13.99, popular: false },
+                { extension: '.io', price: 59.99, popular: false },
+                { extension: '.co', price: 24.99, popular: false },
+                { extension: '.app', price: 19.99, popular: false }
+            ];
+
+            return (
+                <section className="py-20">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="text-center mb-16">
+                            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                                Transparent Pricing
+                            </h2>
+                            <p className="text-xl text-gray-600">
+                                No hidden fees, no surprises
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {extensions.map((ext, index) => (
+                                <Card key={index} className={cn(
+                                    'text-center relative',
+                                    ext.popular && 'ring-2 ring-blue-500'
+                                )}>
+                                    {ext.popular && (
+                                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                                            <Badge variant="success">Most Popular</Badge>
+                                        </div>
+                                    )}
+                                    <div className="text-2xl font-bold text-blue-600 mb-2">
