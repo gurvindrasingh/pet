@@ -7,9 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+apps/*/dist/
+apps/*/node_modules/
+apps/*/dist-ssr/
 *.local
 
 # Editor directories and files
@@ -24,6 +24,4 @@ dist-ssr
 *.sw?
 
 .vite
-Dockerfile
-docker-compose.yml
-.env
+.env*

@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  web:
+    container_name: web-container
+    build:
+      context: ./apps/web
+      dockerfile: ../../docker/web/Dockerfile
+    volumes:
+      - ./apps/web:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - "${WEB_HOST_PORT}:${WEB_DOCKER_PORT}"
+      - "${HOST_DEBUG_PORT}:${DOCKER_DEBUG_PORT}"
+    env_file:
+      - ./apps/web/.env
+    networks:
+      - pet-network
+  db:
+    image: postgres:13-alpine
+    container_name: db-container
+    restart: always
+    ports:
+      - "${DB_HOST_PORT}:${DB_DOCKER_PORT}"
+    env_file:
+      - ./apps/web/.env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - pet-network
+  db-adminer:
+    image: adminer
+    container_name: db-adminer
+    restart: always
+    ports:
+      - "${ADMINER_HOST_PORT}:${ADMINER_DOCKER_PORT}"
+    depends_on:
+      - db
+    networks:
+      - pet-network
+
+networks:
+  pet-network:
+
+volumes:
+  db-data:

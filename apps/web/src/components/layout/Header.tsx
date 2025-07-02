@@ -31,10 +31,30 @@ export default function Header() {
               </NavLink>
             </div>
             <div className="flex flex-wrap gap-6 justify-center text-gray-700 text-sm">
-              <NavLink to="/register">Sign Up</NavLink>
-              <NavLink to="/login">Sign In</NavLink>
-              <NavLink to="/">Help</NavLink>
-              <NavLink to="/">Language</NavLink>
+              <NavLink
+                to="/register"
+                className="hover:text-blue-950 hover:underline transition"
+              >
+                Sign Up
+              </NavLink>
+              <NavLink
+                to="/login"
+                className="hover:text-blue-950 hover:underline transition"
+              >
+                Sign In
+              </NavLink>
+              <NavLink
+                to="/"
+                className="hover:text-blue-950 hover:underline transition"
+              >
+                Help
+              </NavLink>
+              <NavLink
+                to="/"
+                className="hover:text-blue-950 hover:underline transition"
+              >
+                Language
+              </NavLink>
             </div>
           </div>
         </nav>
