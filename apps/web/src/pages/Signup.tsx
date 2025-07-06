@@ -1,7 +1,8 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Box, Button, TextField, Typography } from "@mui/material";
-import { signupSchema, SignupFormData } from "../schemas/authSchema";
+import { signupSchema } from "../schemas/authSchema";
+import type { SignupFormData } from "../schemas/authSchema";
 
 export default function Signup() {
   const {
